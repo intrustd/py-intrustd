@@ -771,14 +771,14 @@ class Permission(object):
         return "<Permission {}>".format(self.spec_pattern.to_string())
 
     def __call__(self, *args, **kwargs):
-        if self.is_complete:
-            raise TypeError("Cannot extend complete permission")
-
-        elif self.extension is None and len(args) == 1 and len(kwargs) == 0 and \
+        if self.extension is None and len(args) == 1 and len(kwargs) == 0 and \
              isinstance(args[0], type):
 
             self.extension = args[0]
             return self
+
+        elif self.is_complete:
+            raise TypeError("Cannot extend complete permission")
 
         else:
             return self._fill(*args, **kwargs)
