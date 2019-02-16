@@ -1,5 +1,3 @@
-from intrustd.permissions import Permissions
-
-__all__ = [ Permissions ]
+__path__ = __import__('pkgutil').extend_path(__path__, __name__)
 
 
