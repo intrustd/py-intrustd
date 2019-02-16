@@ -1,14 +1,14 @@
 { pkgs ? import <nixpkgs> {},
-  python ? pkgs.python3Packages }:
+  python3 ? pkgs.python3 }:
 
-python.buildPythonPackage {
+python3.pkgs.buildPythonPackage {
   pname = "intrustd-support";
   version = "0.1.0";
 
   src = ./.;
 
-  buildInputs = with python; [ requests ];
-  nativeBuildInputs = with python; [ pytest ];
+  propagatedBuildInputs = with python3.pkgs; [ requests ];
+  propagatedNativeBuildInputs = with python3.pkgs; [ pytest ];
 
   meta = {
     license = pkgs.stdenv.lib.licenses.mit;
