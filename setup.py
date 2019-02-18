@@ -7,5 +7,5 @@ setup(
     description="Intrustd application support",
     packages=find_packages(),
     install_requires=['requests'],
-    tests_requires=['pytest']
+    test_requires=['pytest']
 )

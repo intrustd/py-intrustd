@@ -846,3 +846,37 @@ def mkperm(cons, *args, **kwargs):
     wrapped.__name__ = getattr(cons, '__name__', wrapped.__name__)
 
     return wrapped
+
+def get_site_for(site_ip, app_endpoint='http://admin.intrustd.com.app.local'):
+    r = requests.get(urljoin(app_endpoint, '/container/{}'.format(site_ip)))
+    if r.status_code == 200:
+        return r.json().get('site_id')
+    elif r.status_code == 401:
+        raise PermissionError('Not permitted to read site')
+
+def mint_token(*perms, site_only=False, on_behalf_of=None, ttl=None,
+               app_endpoint='http://admin.intrustd.com.app.local'):
+    req = { 'permissions': [p.url if isinstance(p, Permission) else p for p in perms] }
+
+    if ttl is None:
+        req['ttl'] = ttl
+
+    if site_only:
+        if on_behalf_of is None:
+            raise ValueError("Expecting a proxy site")
+
+        else:
+            req['site'] = get_site_for(on_behalf_of, app_endpoint=app_endpoint)
+            if req['site'] is None:
+                raise RuntimeError("No site found")
+
+    r = requests.post(urljoin(app_endpoint, 'tokens'), json=req)
+    if r.status_code == 200 or r.status_code == 201:
+        res = r.json()
+        return res['token']
+    elif r.status_code == 404:
+        raise KeyError("Permission not found")
+    elif r.status_code == 403:
+        raise PermissionError("Could not request permissions")
+    else:
+        raise RuntimeError("Unknown status code: {}".format(r.status_code))
