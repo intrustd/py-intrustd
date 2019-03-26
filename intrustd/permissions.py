@@ -13,16 +13,20 @@ from copy import deepcopy
 
 INTRUSTD_TRANSFER_SUFFIX="/transfer"
 INTRUSTD_TRANSFER_ONCE_SUFFIX="/transfer_once"
-def get_base_perm(perm):
+def split_perm(perm):
+    suffix = []
     while perm.endswith(INTRUSTD_TRANSFER_SUFFIX) or \
         perm.endswith(INTRUSTD_TRANSFER_ONCE_SUFFIX):
 
         if perm.endswith(INTRUSTD_TRANSFER_SUFFIX):
             perm = perm[:-len(INTRUSTD_TRANSFER_SUFFIX)]
+            suffix.append('transfer')
         else:
             perm = perm[:-len(INTRUSTD_TRANSFER_ONCE_SUFFIX)]
+            suffix.append('transfer_once')
 
-    return perm
+    suffix.reverse()
+    return perm, suffix
 
 class PermSchemaMismatchError(Exception):
     def __init__(self, got):
@@ -336,6 +340,18 @@ class ReversibleTemplate(object):
 
         return self.fill(**args)
 
+    def __add__(self, o):
+        new = deepcopy(self)
+
+        if len(self.template) == 0 or \
+           isinstance(self.template[-1], PlaceholderToken):
+            new.template.append(LiteralToken(o))
+
+        else:
+            new.template[-1].literal += o
+
+        return new
+
 # Permissions
 
 class MissingPermissionsError(Exception):
@@ -510,11 +526,18 @@ class Permissions(object):
         if res.hostname is not None and res.hostname != self.url.hostname:
             raise PermAppMismatchError(self.url.hostname, res.hostname)
 
-        perm_str = get_base_perm(res.path)
+        perm_str, suffix = split_perm(res.path)
 
         for perm in self.perms:
             new_perm = perm.matches_string(perm_str)
             if new_perm is not None:
+                for s in suffix:
+                    if s == 'transfer':
+                        new_perm = new_perm.transfer
+                    elif s == 'transfer_once':
+                        new_perm = new_perm.transfer_once
+                    else:
+                        raise ValueError("Unknown suffix type: {}".format(s))
                 return new_perm
         return None
 
@@ -764,6 +787,17 @@ class Permission(object):
     def pattern(self):
         return urlunparse(self.perms.url._replace(path=self.spec))
 
+    @property
+    def transfer(self):
+        return Permission(self.perms, self.spec_pattern + "/transfer",
+                          extension=self.extension, base=self.base)
+
+    @property
+    def transfer_once(self):
+        return Permission(self.perms, self.spec_pattern + "/transfer_once",
+                          extension=self.extension, base=self.base)
+        return
+
     def __repr__(self):
         return str(self)
 
@@ -847,28 +881,15 @@ def mkperm(cons, *args, **kwargs):
 
     return wrapped
 
-def get_site_for(site_ip, app_endpoint='http://admin.intrustd.com.app.local'):
-    r = requests.get(urljoin(app_endpoint, '/container/{}'.format(site_ip)))
-    if r.status_code == 200:
-        return r.json().get('site_id')
-    elif r.status_code == 401:
-        raise PermissionError('Not permitted to read site')
-
-def mint_token(*perms, site_only=False, on_behalf_of=None, ttl=None,
+def mint_token(*perms, on_behalf_of=None, ttl=None,
                app_endpoint='http://admin.intrustd.com.app.local'):
     req = { 'permissions': [p.url if isinstance(p, Permission) else p for p in perms] }
 
-    if ttl is None:
+    if ttl is not None:
         req['ttl'] = ttl
 
-    if site_only:
-        if on_behalf_of is None:
-            raise ValueError("Expecting a proxy site")
-
-        else:
-            req['site'] = get_site_for(on_behalf_of, app_endpoint=app_endpoint)
-            if req['site'] is None:
-                raise RuntimeError("No site found")
+    if on_behalf_of is not None:
+        req['on_behalf_of'] = on_behalf_of
 
     r = requests.post(urljoin(app_endpoint, 'tokens'), json=req)
     if r.status_code == 200 or r.status_code == 201:
@@ -876,7 +897,8 @@ def mint_token(*perms, site_only=False, on_behalf_of=None, ttl=None,
         return res['token']
     elif r.status_code == 404:
         raise KeyError("Permission not found")
-    elif r.status_code == 403:
-        raise PermissionError("Could not request permissions")
+    elif r.status_code in (401, 403):
+        res = r.json()
+        raise PermissionError("Could not request permissions: {}".format(res.get('denied', [])))
     else:
         raise RuntimeError("Unknown status code: {}".format(r.status_code))
