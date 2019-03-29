@@ -3,7 +3,7 @@ import json
 import argparse
 import warnings
 from urllib.parse import urlparse, urlunparse, urljoin
-from collections.abc import Mapping, Sequence, Callable
+from collections.abc import Mapping, Sequence, Callable, Iterable
 
 import re
 import requests
