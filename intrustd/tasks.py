@@ -29,3 +29,13 @@ def schedule_command(cmd, data=None,
         raise KeyError(alias)
     else:
         raise RuntimeError('Unknown status code while adding command: {} {}'.format(r.status_code, r.text))
+
+def get_scheduled_command_status(task_id,
+                                 endpoint=os.getenv('INTRUSTD_ADMIN_ENDPOINT', 'http://admin.intrustd.com.app.local')):
+    r = requests.get(urljoin(endpoint, '/schedule/{}'.format(task_id)))
+    if r.status_code == 200:
+        return r.json()
+    elif r.status_code == 404:
+        raise KeyError(task_id)
+    else:
+        raise RuntimeError('Unknown status while checking command status: {}'.format(r.status_code))
