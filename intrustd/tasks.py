@@ -21,11 +21,11 @@ def schedule_command(cmd, data=None,
     if alias is not None:
         d['alias'] = alias
 
-    r = requests.post(urljoin(endpoint, '/schedule'), data=d)
+    r = requests.post(urljoin(endpoint, '/schedule'), json=d)
     if r.status_code == 201:
         rsp = r.json()
         return rsp
     elif r.status_code == 409:
         raise KeyError(alias)
     else:
-        raise RuntimeError('Unknown status code while adding command: {}'.format(r.status_code))
+        raise RuntimeError('Unknown status code while adding command: {} {}'.format(r.status_code, r.text))
