@@ -923,3 +923,15 @@ def apply_token(tokens, app_endpoint='http://admin.intrustd.com.app.local'):
         raise KeyError("Token not found")
     else:
         raise RuntimeError("Unknown status code: {}".format(r.status_code))
+
+def get_all_permissions(for_whom='me', app_endpoint='http://admin.intrustd.com.app.local'):
+    if not isinstance(for_whom, str):
+        raise TypeError('for_whom ought to be a str')
+
+    r = requests.get(urljoin(app_endpoint, '{}/permissions'.format(for_whom)))
+    if r.status_code == 404:
+        raise KeyError('{} does not exist'.format(for_whom))
+    elif r.status_code == 200:
+        return r.json()
+    else:
+        raise RuntimeError("Unknown status code: {}".format(r.status_code))
