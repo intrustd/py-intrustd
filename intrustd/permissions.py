@@ -881,7 +881,7 @@ def mkperm(cons, *args, **kwargs):
 
     return wrapped
 
-def mint_token(*perms, on_behalf_of=None, ttl=None,
+def mint_token(*perms, on_behalf_of=None, ttl=None, delegation_ok=None,
                app_endpoint='http://admin.intrustd.com.app.local'):
     req = { 'permissions': [p.url if isinstance(p, Permission) else p for p in perms] }
 
@@ -890,6 +890,9 @@ def mint_token(*perms, on_behalf_of=None, ttl=None,
 
     if on_behalf_of is not None:
         req['on_behalf_of'] = on_behalf_of
+
+    if delegation_ok is not None:
+        req['delegation_ok'] = delegation_ok
 
     r = requests.post(urljoin(app_endpoint, 'tokens'), json=req)
     if r.status_code == 200 or r.status_code == 201:
@@ -900,5 +903,23 @@ def mint_token(*perms, on_behalf_of=None, ttl=None,
     elif r.status_code in (401, 403):
         res = r.json()
         raise PermissionError("Could not request permissions: {}".format(res.get('denied', [])))
+    else:
+        raise RuntimeError("Unknown status code: {}".format(r.status_code))
+
+def apply_token(tokens, app_endpoint='http://admin.intrustd.com.app.local'):
+    if isinstance(tokens, str):
+        tokens = [ tokens ]
+
+    if not isinstance(tokens, list) and \
+       not all(isinstance(token, str) for token in tokens):
+        raise TypeError("tokens should be a string or list of strings")
+
+    r = requests.posts(urljoin(app_endpoint, 'me/tokens'), json=tokens)
+    if r.status_code == 200:
+        return
+    elif r.status_code == 406:
+        raise PermissionError("Token not yet authorized")
+    elif r.status_code == 404:
+        raise KeyError("Token not found")
     else:
         raise RuntimeError("Unknown status code: {}".format(r.status_code))
