@@ -898,6 +898,8 @@ def mint_token(*perms, on_behalf_of=None, ttl=None, delegation_ok=None,
     if r.status_code == 200 or r.status_code == 201:
         res = r.json()
         return res['token']
+    elif r.status_code == 400:
+        raise RuntimeError("Invalid token request: {}".format(r.text))
     elif r.status_code == 404:
         raise KeyError("Permission not found")
     elif r.status_code in (401, 403):
@@ -914,7 +916,7 @@ def apply_token(tokens, app_endpoint='http://admin.intrustd.com.app.local'):
        not all(isinstance(token, str) for token in tokens):
         raise TypeError("tokens should be a string or list of strings")
 
-    r = requests.posts(urljoin(app_endpoint, 'me/tokens'), json=tokens)
+    r = requests.posts(urljoin(app_endpoint, 'me/tokens'), json={ 'tokens': tokens })
     if r.status_code == 200:
         return
     elif r.status_code == 406:
