@@ -798,6 +798,13 @@ class Permission(object):
                           extension=self.extension, base=self.base)
         return
 
+    @property
+    def base_permission(self):
+        if self.base is self:
+            return self
+        else:
+            return self.base.base_permission
+
     def __repr__(self):
         return str(self)
 
