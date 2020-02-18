@@ -381,6 +381,13 @@ class PredicateSearcher(object):
         for perm in self._perms:
             if pred.match(perm):
                 yield self._schema.normalize_perm(perm)
+            else:
+                try:
+                    pred.search(self)
+                except SearchSucceeded as e:
+                    yield self._schema.normalize_perm(pred)
+                except SearchFailed as e:
+                    pass
 
     def search(self, *args):
         for pred in args:
